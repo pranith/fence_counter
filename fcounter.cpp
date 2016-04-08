@@ -24,9 +24,9 @@ using std::ostream;
 
 class FenceCounter {
 public:
-  FenceCounter(OSDomain &osd, cs_disas& arch_dis) :
+  FenceCounter(OSDomain &osd) :
 	  osd(osd), finished(false), unid_fences(0), full_fences(0), llsc(0), icount(0), tmp_icount(0),
-	  dis(arch_dis)
+	  dis(CS_ARCH_ARM64, CS_MODE_ARM)
   { 
     osd.set_app_start_cb(this, &FenceCounter::app_start_cb);
   }
