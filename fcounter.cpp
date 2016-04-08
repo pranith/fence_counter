@@ -21,13 +21,20 @@
 using Qsim::OSDomain;
 
 using std::ostream;
+using std::to_string;
 
 class FenceCounter {
 public:
   FenceCounter(OSDomain &osd) :
-	  osd(osd), finished(false), unid_fences(0), full_fences(0), llsc(0), icount(0), tmp_icount(0),
-	  dis(CS_ARCH_ARM64, CS_MODE_ARM)
+	  osd(osd), finished(false), unid_fences(0), full_fences(0),
+    llsc(0), icount(0), tmp_icount(0)
   { 
+    if (osd.getCpuType(0) == "a64") {
+      dis = new cs_disas(CS_ARCH_ARM64, CS_MODE_ARM);
+    } else {
+      dis = new cs_disas(CS_ARCH_X86, CS_MODE_64);
+    }
+
     osd.set_app_start_cb(this, &FenceCounter::app_start_cb);
   }
 
@@ -37,7 +44,11 @@ public:
     static bool ran = false;
     if (!ran) {
       ran = true;
-      osd.set_inst_cb(this, &FenceCounter::inst_cb);
+      if (osd.getCpuType(0) == "a64")
+        osd.set_inst_cb(this, &FenceCounter::a64_inst_cb);
+      else
+        osd.set_inst_cb(this, &FenceCounter::x86_inst_cb);
+
       osd.set_app_end_cb(this, &FenceCounter::app_end_cb);
 
       std::cout << "icount, uni, full" << std::endl;
@@ -49,12 +60,38 @@ public:
 
   int app_end_cb(int c)   { finished = true; return 1; }
 
-  void inst_cb(int c, uint64_t v, uint64_t p, uint8_t l, const uint8_t *b, 
+  void x86_inst_cb(int c, uint64_t v, uint64_t p, uint8_t l, const uint8_t *b, 
                enum inst_type t)
   {
     cs_insn *insn = NULL;
 
-    int count = dis.decode((unsigned char *)b, l, insn);
+    int count = dis->decode((unsigned char *)b, l, insn);
+    insn[0].address = v;
+
+    switch (insn[0].id) {
+    case X86_INS_MFENCE:
+    case X86_INS_SFENCE:
+    case X86_INS_LFENCE:
+      full_fences++;
+      break;
+    default:
+      if (insn[0].detail->x86.prefix[0])
+        full_fences++;
+      break;
+    }
+
+    dis->free_insn(insn, count);
+
+    icount++;
+
+  }
+
+  void a64_inst_cb(int c, uint64_t v, uint64_t p, uint8_t l, const uint8_t *b, 
+               enum inst_type t)
+  {
+    cs_insn *insn = NULL;
+
+    int count = dis->decode((unsigned char *)b, l, insn);
     insn[0].address = v;
 
     switch (insn[0].id) {
@@ -83,10 +120,11 @@ public:
       break;
     }
 
-    dis.free_insn(insn, count);
+    dis->free_insn(insn, count);
 
     icount++;
 
+    /*
     if (icount % 10000000 == 0) {
       std::cout << tmp_icount << ", " << icount << ", " << unid_fences << ", " << full_fences << ", " << std::endl;
       tmp_icount++;
@@ -94,15 +132,25 @@ public:
       full_fences = 0;
       icount      = 0;
     }
+    */
 
     return;
   }
 
   void print_stats(std::ofstream& out)
   {
-    std::cout << "uni: " << unid_fences << "llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
-    out << ", " << unid_fences << ", " << llsc << ", " << full_fences << ", "<< icount << std::endl;
+    std::cout << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
+    out << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
   }
+
+  void print_stats_csv(std::ofstream& out)
+  {
+    std::cout << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
+    out << to_string(unid_fences) + "," + to_string(llsc) + "," + to_string(full_fences) + "," + to_string(icount) << std::endl;
+  }
+
+
+  ~FenceCounter() { delete dis; }
 
 private:
   OSDomain &osd;
@@ -111,7 +159,7 @@ private:
   uint64_t full_fences;
   uint64_t llsc;
   uint64_t icount, tmp_icount;
-  cs_disas dis;
+  cs_disas* dis;
 
   static const char * itype_str[];
 };
@@ -163,7 +211,7 @@ int main(int argc, char** argv) {
     osd.timer_interrupt();
   }
   
-  fc.print_stats(out);
+  fc.print_stats_csv(out);
   if (outfile) { outfile->close(); }
   delete outfile;
 
