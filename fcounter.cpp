@@ -66,12 +66,17 @@ public:
     cs_insn *insn = NULL;
 
     int count = dis->decode((unsigned char *)b, l, insn);
+
+    if (!count)
+      return;
+
     insn[0].address = v;
 
     switch (insn[0].id) {
     case X86_INS_MFENCE:
     case X86_INS_SFENCE:
     case X86_INS_LFENCE:
+    case X86_INS_XCHG:
       full_fences++;
       break;
     default:
@@ -98,17 +103,17 @@ public:
     case ARM64_INS_STLR:
     case ARM64_INS_STLRB:
     case ARM64_INS_STLRH:
-    case ARM64_INS_LDR:
-    case ARM64_INS_LDRB:
-    case ARM64_INS_LDRH:
+    case ARM64_INS_LDAR:
+    case ARM64_INS_LDARB:
+    case ARM64_INS_LDARH:
       unid_fences++;
       break;
     case ARM64_INS_STLXR:
     case ARM64_INS_STLXRB:
     case ARM64_INS_STLXRH:
-    case ARM64_INS_LDXR:
-    case ARM64_INS_LDXRB:
-    case ARM64_INS_LDXRH:
+    case ARM64_INS_LDAXR:
+    case ARM64_INS_LDAXRB:
+    case ARM64_INS_LDAXRH:
       llsc++;
       break;
     case ARM64_INS_DMB:
@@ -146,9 +151,10 @@ public:
   void print_stats_csv(std::ofstream& out)
   {
     std::cout << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
-    out << to_string(unid_fences) + "," + to_string(llsc) + "," + to_string(full_fences) + "," + to_string(icount) << std::endl;
+    out << "," + to_string(unid_fences) + "," + to_string(llsc) + "," + to_string(full_fences) + "," + to_string(icount) << std::endl;
   }
 
+  uint64_t geticount(void) { return icount; }
 
   ~FenceCounter() { delete dis; }
 
@@ -209,6 +215,10 @@ int main(int argc, char** argv) {
     for (int i = 0; i < osd.get_n(); i++)
       osd.run(i, inst_per_iter);
     osd.timer_interrupt();
+
+    // count for 100M instructions max
+    if (fc.geticount() > 500 * 1000000)
+      break;
   }
   
   fc.print_stats_csv(out);
