@@ -200,7 +200,8 @@ int main(int argc, char** argv) {
 
   Qsim::load_file(osd, argv[3]);
   std::string bench(argv[3]);
-  std::string ofname = "counter.out";
+  std::string ofname = std::string(strtok(argv[3], ".")) + ".out";
+  std::cout << ofname << std::endl;
   std::ofstream out;
   out.open(ofname, std::ofstream::out | std::ofstream::app);
   // If this OSDomain was created from a saved state, the app start callback was
@@ -210,14 +211,12 @@ int main(int argc, char** argv) {
   osd.connect_console(std::cout);
 
   // The main loop: run until 'finished' is true.
-  unsigned long inst_per_iter = 10000;
+  unsigned long inst_per_iter = 1000000;
   while (!fc.hasFinished()) {
-    for (int i = 0; i < osd.get_n(); i++)
-      osd.run(i, inst_per_iter);
-    osd.timer_interrupt();
+    osd.run(inst_per_iter);
 
-    // count for 100M instructions max
-    if (fc.geticount() > 500 * 1000000)
+    // count for 1000M instructions max
+    if (fc.geticount() > 2000 * 1000000)
       break;
   }
   

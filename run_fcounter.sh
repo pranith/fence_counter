@@ -1,10 +1,10 @@
 #!/bin/bash
 
-for bench in ../graphBig/qsim/*.tar; do
+for bench in ../graphbig/qsim/*.tar; do
     bench_name=$(basename $bench .tar);
     printf $bench_name "," >> counter.out
-    sed "s#BENCH#$bench#g" run_orig.sh > $bench_name.sh
-    chmod +x $bench_name.sh
-    ./$bench_name.sh
-    mv counter.out $bench_name.out
+    sed "s#BENCH#$bench#g" run_orig.sh > bench_${bench_name}.sh
+    chmod +x bench_${bench_name}.sh
 done
+
+ls ./bench*.sh | parallel -j8
