@@ -10,7 +10,7 @@ QSIM_PREFIX ?= /usr/local
 CXXFLAGS ?= -O3 -g -Wall -I$(QSIM_PREFIX)/include -std=c++11 -Wall
 LDLIBS ?= -L$(QSIM_PREFIX)/lib -lqsim -lcapstone -pthread -ldl -lz
 
-EXAMPLES = fcounter tester
+EXAMPLES = fcounter
 
 all: $(EXAMPLES)
 

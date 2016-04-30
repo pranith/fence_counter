@@ -1,0 +1,3 @@
+bench*.sh
+*.o
+fcounter
