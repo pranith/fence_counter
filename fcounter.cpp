@@ -76,12 +76,13 @@ public:
     case X86_INS_MFENCE:
     case X86_INS_SFENCE:
     case X86_INS_LFENCE:
-    case X86_INS_XCHG:
       full_fences++;
       break;
+    case X86_INS_XCHG:
+      llsc++;
     default:
       if (insn[0].detail->x86.prefix[0])
-        full_fences++;
+        llsc++;
       break;
     }
 
