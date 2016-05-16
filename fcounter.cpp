@@ -201,7 +201,8 @@ int main(int argc, char** argv) {
 
   Qsim::load_file(osd, argv[3]);
   std::string bench(argv[3]);
-  std::string ofname = std::string(strtok(argv[3], ".")) + ".out";
+  std::string filename = bench.substr(bench.find_last_of("/")+1);
+  std::string ofname = std::string(filename.substr(0, filename.find_last_of("."))) + ".out";
   std::cout << ofname << std::endl;
   std::ofstream out;
   out.open(ofname, std::ofstream::out | std::ofstream::app);
