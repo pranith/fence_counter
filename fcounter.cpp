@@ -27,7 +27,7 @@ class FenceCounter {
 public:
   FenceCounter(OSDomain &osd) :
 	  osd(osd), finished(false), unid_fences(0), full_fences(0),
-    llsc(0), icount(0), tmp_icount(0)
+    llsc(0), icount(0), mcount(0)
   { 
     if (osd.getCpuType(0) == "a64") {
       dis = new cs_disas(CS_ARCH_ARM64, CS_MODE_ARM);
@@ -49,6 +49,8 @@ public:
       else
         osd.set_inst_cb(this, &FenceCounter::x86_inst_cb);
 
+      osd.set_mem_cb(this, &FenceCounter::mem_cb);
+
       osd.set_app_end_cb(this, &FenceCounter::app_end_cb);
 
       std::cout << "icount, uni, full" << std::endl;
@@ -59,6 +61,10 @@ public:
   }
 
   int app_end_cb(int c)   { finished = true; return 1; }
+
+  void mem_cb(int c, uint64_t v, uint64_t p, uint8_t s, int w) {
+    mcount++;
+  }
 
   void x86_inst_cb(int c, uint64_t v, uint64_t p, uint8_t l, const uint8_t *b, 
                enum inst_type t)
@@ -81,7 +87,7 @@ public:
     case X86_INS_XCHG:
       llsc++;
     default:
-      if (insn[0].detail->x86.prefix[0])
+      if (insn[0].detail->x86.prefix[0] == X86_PREFIX_LOCK)
         llsc++;
       break;
     }
@@ -89,7 +95,6 @@ public:
     dis->free_insn(insn, count);
 
     icount++;
-
   }
 
   void a64_inst_cb(int c, uint64_t v, uint64_t p, uint8_t l, const uint8_t *b, 
@@ -130,16 +135,6 @@ public:
 
     icount++;
 
-    /*
-    if (icount % 10000000 == 0) {
-      std::cout << tmp_icount << ", " << icount << ", " << unid_fences << ", " << full_fences << ", " << std::endl;
-      tmp_icount++;
-      unid_fences = 0;
-      full_fences = 0;
-      icount      = 0;
-    }
-    */
-
     return;
   }
 
@@ -151,8 +146,8 @@ public:
 
   void print_stats_csv(std::ofstream& out)
   {
-    std::cout << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << std::endl;
-    out << "," + to_string(unid_fences) + "," + to_string(llsc) + "," + to_string(full_fences) + "," + to_string(icount) << std::endl;
+    std::cout << "uni: " << unid_fences << " llsc: " << llsc << " full: " << full_fences << " icount: "<< icount << " mcount: " << mcount << std::endl;
+    out << "," + to_string(unid_fences) + "," + to_string(llsc) + "," + to_string(full_fences) + "," + to_string(icount) + "," + to_string(mcount) << std::endl;
   }
 
   uint64_t geticount(void) { return icount; }
@@ -165,7 +160,7 @@ private:
   uint64_t unid_fences;
   uint64_t full_fences;
   uint64_t llsc;
-  uint64_t icount, tmp_icount;
+  uint64_t icount, mcount;
   cs_disas* dis;
 
   static const char * itype_str[];

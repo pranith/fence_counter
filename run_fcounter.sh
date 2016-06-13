@@ -2,7 +2,6 @@
 
 for bench in ../graphbig/qsim/*.tar; do
     bench_name=$(basename $bench .tar);
-    printf $bench_name "," >> counter.out
     sed "s#BENCH#$bench#g" run_orig.sh > bench_${bench_name}.sh
     chmod +x bench_${bench_name}.sh
 done
